@@ -2,65 +2,57 @@ pipeline {
     agent any
 
     environment {
-        APP_DIR = "/var/www/html"
+        DEV_SERVER = "13.48.130.33"
+        STG_SERVER = "51.20.138.15"
+        PRD_SERVER = "13.60.242.151"
+        WEB_DIR = "/var/www/html/"
     }
 
     stages {
 
         stage('Checkout Code') {
             steps {
-                echo "Cloning application code from GitHub..."
-                git branch: 'main',
-                    url: 'https://github.com/shirsatgaurav/firstCICD.git'
+                checkout scm
             }
         }
 
-        stage('Install Apache') {
+        stage('Deploy to DEV') {
+            when {
+                branch 'Dev'
+            }
             steps {
-                echo "Installing Apache HTTPD..."
-                sh '''
-                sudo yum install -y httpd
-                '''
+                echo "Deploying to DEV EC2"
+                sh """
+                scp index.html $DEV_SERVER:/tmp/
+                ssh $DEV_SERVER 'sudo mv /tmp/index.html $WEB_DIR'
+                """
             }
         }
 
-        stage('Start Apache Service') {
+        stage('Deploy to STAGING') {
+            when {
+                branch 'Stg'
+            }
             steps {
-                echo "Starting Apache service..."
-                sh '''
-                sudo systemctl start httpd
-                sudo systemctl enable httpd
-                '''
+                echo "Deploying to STG EC2"
+                sh """
+                scp index.html $STG_SERVER:/tmp/
+                ssh $STG_SERVER 'sudo mv /tmp/index.html $WEB_DIR'
+                """
             }
         }
 
-        stage('Deploy Application') {
+        stage('Deploy to PRODUCTION') {
+            when {
+                branch 'main'
+            }
             steps {
-                echo "Deploying static application..."
-                sh '''
-                sudo rm -rf ${APP_DIR}/*
-                sudo cp -r . ${APP_DIR}/
-                sudo chown -R apache:apache ${APP_DIR}
-                '''
+                echo "Deploying to PRD EC2"
+                sh """
+                scp index.html $PRD_SERVER:/tmp/
+                ssh $PRD_SERVER 'sudo mv /tmp/index.html $WEB_DIR'
+                """
             }
-        }
-
-        stage('Verify Deployment') {
-            steps {
-                echo "Verifying Apache service..."
-                sh '''
-                sudo systemctl is-active httpd
-                '''
-            }
-        }
-    }
-
-    post {
-        success {
-            echo "✅ Deployment successful! Application is live."
-        }
-        failure {
-            echo "❌ Deployment failed. Please check logs."
         }
     }
 }
