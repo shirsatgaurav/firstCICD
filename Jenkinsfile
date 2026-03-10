@@ -2,10 +2,10 @@ pipeline {
     agent any
 
     environment {
-        DEV_SERVER = "13.48.130.33"
-        STG_SERVER = "51.20.138.15"
-        PRD_SERVER = "13.60.242.151"
-        WEB_DIR = "/var/www/html/"
+        DEV_SERVER = "16.171.115.204"
+        STG_SERVER = "13.62.227.80"
+        PRD_SERVER = "13.53.216.8"
+        USER = "root"
     }
 
     stages {
@@ -16,43 +16,60 @@ pipeline {
             }
         }
 
+        stage('Install Apache') {
+            steps {
+                sh '''
+                sudo yum install httpd -y
+                sudo systemctl start httpd
+                sudo systemctl enable httpd
+                '''
+            }
+        }
+
         stage('Deploy to DEV') {
             when {
                 branch 'Dev'
             }
             steps {
-                echo "Deploying to DEV EC2"
-                sh """
-                scp index.html $DEV_SERVER:/tmp/
-                ssh $DEV_SERVER 'sudo mv /tmp/index.html $WEB_DIR'
-                """
+                sh '''
+                sudo cp index.html /var/www/html/index.html
+                sudo systemctl restart httpd
+                '''
             }
         }
 
-        stage('Deploy to STAGING') {
+        stage('Deploy to STG') {
             when {
                 branch 'Stg'
             }
             steps {
-                echo "Deploying to STG EC2"
-                sh """
-                scp index.html $STG_SERVER:/tmp/
-                ssh $STG_SERVER 'sudo mv /tmp/index.html $WEB_DIR'
-                """
+                sh '''
+                sudo cp index.html /var/www/html/index.html
+                sudo systemctl restart httpd
+                '''
             }
         }
 
-        stage('Deploy to PRODUCTION') {
+        stage('Deploy to PROD') {
             when {
                 branch 'main'
             }
             steps {
-                echo "Deploying to PRD EC2"
-                sh """
-                scp index.html $PRD_SERVER:/tmp/
-                ssh $PRD_SERVER 'sudo mv /tmp/index.html $WEB_DIR'
-                """
+                sh '''
+                sudo cp index.html /var/www/html/index.html
+                sudo systemctl restart httpd
+                '''
             }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment Successful"
+        }
+
+        failure {
+            echo "Deployment Failed"
         }
     }
 }
